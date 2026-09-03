@@ -786,6 +786,7 @@
 
             <p class="hero-text">
                 Upload an Excel spreadsheet, define one or more filters,
+                choose which columns each filter should return,
                 and receive the matching rows as structured JSON.
                 Built for applications that need to process Excel data
                 without manually opening or manipulating spreadsheets.
@@ -823,8 +824,9 @@
                     </h3>
 
                     <p>
-                        Specify the worksheet, column, filter name,
-                        and values you want to match.
+                        Specify the worksheet, filter column, filter name,
+                        values to match, and the output columns you want
+                        returned for each filter.
                     </p>
 
                 </div>
@@ -841,7 +843,8 @@
                     </h3>
 
                     <p>
-                        The API returns each filter's matching rows
+                        The API returns each filter's matching rows using
+                        only the output columns requested for that filter,
                         together with the total number of matching rows.
                     </p>
 
@@ -870,7 +873,8 @@
                 synchronously. Your request contains the Excel file
                 and the filters you want to apply. The API validates
                 the workbook, applies each filter independently,
-                and immediately returns the matching rows.
+                selects the requested output columns for each matching
+                result, and immediately returns the matching rows.
             </p>
 
 
@@ -962,6 +966,30 @@
 
                     <tr>
                         <td>
+                            Output columns
+                        </td>
+
+                        <td>
+                            Each filter specifies the exact columns that
+                            should be returned in its result. At least one
+                            output column is required, and up to 100 output
+                            columns may be requested per filter.
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            Different output columns
+                        </td>
+
+                        <td>
+                            Each filter can request a different set and
+                            order of output columns.
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
                             Column matching
                         </td>
 
@@ -1018,6 +1046,8 @@
                 The following example filters an Excel spreadsheet
                 using the <code>Status</code> column and returns
                 separate results for successful and failed rows.
+                Each filter also specifies the columns that should
+                be included in its result.
             </p>
 
 
@@ -1101,12 +1131,14 @@ filters = [
     {
         "name": "successful",
         "column": "Status",
-        "values": ["successful"]
+        "values": ["successful"],
+        "columns": ["ID", "Customer", "Amount", "Reference"]
     },
     {
         "name": "failed",
         "column": "Status",
-        "values": ["failed"]
+        "values": ["failed"],
+        "columns": ["ID", "Customer", "Amount", "Error"]
     }
 ]
 
@@ -1166,12 +1198,14 @@ const filters = [
   {
     name: "successful",
     column: "Status",
-    values: ["successful"]
+    values: ["successful"],
+    columns: ["ID", "Customer", "Amount", "Reference"]
   },
   {
     name: "failed",
     column: "Status",
-    values: ["failed"]
+    values: ["failed"],
+    columns: ["ID", "Customer", "Amount", "Error"]
   }
 ];
 
@@ -1233,7 +1267,7 @@ console.log(data);</code></pre>
                     <pre><code>curl -X POST https://filterapi.zendix.app/v1/filter/ \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -F "file=@transactions.xlsx" \
-  -F 'filters=[{"name":"successful","column":"Status","values":["successful"]},{"name":"failed","column":"Status","values":["failed"]}]'</code></pre>
+  -F 'filters=[{"name":"successful","column":"Status","values":["successful"],"columns":["ID","Customer","Amount","Reference"]},{"name":"failed","column":"Status","values":["failed"],"columns":["ID","Customer","Amount","Error"]}]'</code></pre>
 
                 </div>
 
@@ -1267,8 +1301,8 @@ console.log(data);</code></pre>
                 {
                     "ID": 1,
                     "Customer": "John",
-                    "Status": "successful",
-                    "Amount": 5000
+                    "Amount": 5000,
+                    "Reference": "TX001"
                 }
             ],
             "total_rows": 1
@@ -1278,8 +1312,8 @@ console.log(data);</code></pre>
                 {
                     "ID": 2,
                     "Customer": "Mary",
-                    "Status": "failed",
-                    "Amount": 3000
+                    "Amount": 3000,
+                    "Error": "Insufficient funds"
                 }
             ],
             "total_rows": 1
@@ -1548,6 +1582,8 @@ console.log(data);</code></pre>
                 Filter an Excel workbook by one or more column values.
                 The endpoint accepts an <code>.xlsx</code> file using
                 multipart form data and returns matching rows as JSON.
+                Each filter can independently specify which columns
+                should appear in its result.
             </p>
 
 
@@ -1643,7 +1679,8 @@ console.log(data);</code></pre>
                         </td>
 
                         <td>
-                            A list containing one or more filter objects. Maximum of 5 filter objects.
+                            A list containing one or more filter objects.
+                            Maximum of 5 filter objects.
                         </td>
 
                     </tr>
@@ -1659,7 +1696,9 @@ console.log(data);</code></pre>
 
             <p>
                 Each object inside <code>filters</code> defines one
-                independent result group.
+                independent result group. A filter determines both
+                which rows match and which columns are returned for
+                those rows.
             </p>
 
 
@@ -1718,6 +1757,8 @@ console.log(data);</code></pre>
                         <td>
                             The exact column name to filter.
                             Column matching is case-sensitive.
+                            This column does not need to be included
+                            in <code>columns</code>.
                         </td>
 
                     </tr>
@@ -1745,6 +1786,32 @@ console.log(data);</code></pre>
 
                     </tr>
 
+
+                    <tr>
+
+                        <td>
+                            <code>columns</code>
+                        </td>
+
+                        <td>
+                            array of strings
+                        </td>
+
+                        <td>
+                            yes
+                        </td>
+
+                        <td>
+                            The exact column names to return for matching
+                            rows. At least one output column is required.
+                            A maximum of 100 output columns may be requested
+                            per filter. Column names are case-sensitive.
+                            The order of the columns in this array determines
+                            the order of fields in each returned row.
+                        </td>
+
+                    </tr>
+
                 </tbody>
 
             </table>
@@ -1753,13 +1820,31 @@ console.log(data);</code></pre>
             <div class="info-box">
 
                 <strong>
-                    Empty values
+                    Output columns are explicit
                 </strong>
 
                 <p>
-                    If <code>values</code> is an empty array,
-                    the filter matches every row where the specified
-                    column exists, including rows where that cell is blank.
+                    The <code>columns</code> field must contain at least
+                    one column name. An empty array does not mean "return
+                    all columns." This keeps responses predictable and
+                    prevents clients from unintentionally requesting
+                    unnecessary spreadsheet data.
+                </p>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <strong>
+                    Filter column vs. output columns
+                </strong>
+
+                <p>
+                    The <code>column</code> field determines which rows
+                    match the filter, while <code>columns</code> determines
+                    which fields are returned. The filter column does not
+                    need to be included in the output columns.
                 </p>
 
             </div>
@@ -1793,17 +1878,77 @@ console.log(data);</code></pre>
         {
             "name": "successful",
             "column": "Status",
-            "values": ["successful"]
+            "values": ["successful"],
+            "columns": ["ID", "Customer", "Amount", "Reference"]
         },
         {
             "name": "failed",
             "column": "Status",
-            "values": ["failed"]
+            "values": ["failed"],
+            "columns": ["ID", "Customer", "Amount", "Error"]
         }
     ]
 }</code></pre>
 
             </div>
+
+
+            <h2 style="margin-top: 60px;">
+                Different output columns
+            </h2>
+
+            <p>
+                Each filter can request a different set of output columns.
+                This is useful when different result groups require
+                different information.
+            </p>
+
+
+            <div class="code-block">
+
+                <div class="code-header">
+
+                    <span>
+                        Example
+                    </span>
+
+                    <button
+                        class="copy-btn"
+                        onclick="copyCode(this)"
+                    >
+                        Copy
+                    </button>
+
+                </div>
+
+                <pre><code>{
+    "sheet": "Transactions",
+    "filters": [
+        {
+            "name": "successful",
+            "column": "Status",
+            "values": ["successful"],
+            "columns": ["ID", "Customer", "Amount", "Reference"]
+        },
+        {
+            "name": "failed",
+            "column": "Status",
+            "values": ["failed"],
+            "columns": ["ID", "Customer", "Error"]
+        }
+    ]
+}</code></pre>
+
+            </div>
+
+
+            <p style="margin-top: 24px;">
+                In this example, successful rows return
+                <code>ID</code>, <code>Customer</code>,
+                <code>Amount</code>, and <code>Reference</code>,
+                while failed rows return only <code>ID</code>,
+                <code>Customer</code>, and <code>Error</code>.
+            </p>
 
 
             <h2 style="margin-top: 60px;">
@@ -1836,7 +1981,8 @@ console.log(data);</code></pre>
                 <pre><code>{
     "name": "pending_or_failed",
     "column": "Status",
-    "values": ["pending", "failed"]
+    "values": ["pending", "failed"],
+    "columns": ["ID", "Customer", "Status", "Amount"]
 }</code></pre>
 
             </div>
@@ -2044,12 +2190,14 @@ filters = [
     {
         "name": "successful",
         "column": "Status",
-        "values": ["successful"]
+        "values": ["successful"],
+        "columns": ["ID", "Customer", "Amount", "Reference"]
     },
     {
         "name": "failed",
         "column": "Status",
-        "values": ["failed"]
+        "values": ["failed"],
+        "columns": ["ID", "Customer", "Amount", "Error"]
     }
 ]
 
@@ -2111,12 +2259,14 @@ const filters = [
   {
     name: "successful",
     column: "Status",
-    values: ["successful"]
+    values: ["successful"],
+    columns: ["ID", "Customer", "Amount", "Reference"]
   },
   {
     name: "failed",
     column: "Status",
-    values: ["failed"]
+    values: ["failed"],
+    columns: ["ID", "Customer", "Amount", "Error"]
   }
 ];
 
@@ -2184,7 +2334,7 @@ console.log(data);</code></pre>
   -H "Authorization: Bearer YOUR_API_KEY" \
   -F "file=@transactions.xlsx" \
   -F "sheet=Transactions" \
-  -F 'filters=[{"name":"successful","column":"Status","values":["successful"]},{"name":"failed","column":"Status","values":["failed"]}]'</code></pre>
+  -F 'filters=[{"name":"successful","column":"Status","values":["successful"],"columns":["ID","Customer","Amount","Reference"]},{"name":"failed","column":"Status","values":["failed"],"columns":["ID","Customer","Amount","Error"]}]'</code></pre>
 
                 </div>
 
@@ -2198,7 +2348,9 @@ console.log(data);</code></pre>
             <p>
                 Each filter name becomes a key inside
                 <code>data</code>. Every result contains the matching
-                rows and the number of matching rows.
+                rows and the number of matching rows. Each returned row
+                contains only the columns specified by that filter's
+                <code>columns</code> field.
             </p>
 
 
@@ -2227,14 +2379,14 @@ console.log(data);</code></pre>
                 {
                     "ID": 1,
                     "Customer": "John",
-                    "Status": "successful",
-                    "Amount": 5000
+                    "Amount": 5000,
+                    "Reference": "TX001"
                 },
                 {
                     "ID": 3,
                     "Customer": "David",
-                    "Status": "successful",
-                    "Amount": 7200
+                    "Amount": 7200,
+                    "Reference": "TX003"
                 }
             ],
             "total_rows": 2
@@ -2244,8 +2396,8 @@ console.log(data);</code></pre>
                 {
                     "ID": 2,
                     "Customer": "Mary",
-                    "Status": "failed",
-                    "Amount": 3000
+                    "Amount": 3000,
+                    "Error": "Insufficient funds"
                 }
             ],
             "total_rows": 1
@@ -2587,8 +2739,8 @@ console.log(data);</code></pre>
                         </td>
 
                         <td>
-                            A requested filter column does not exist
-                            in the selected worksheet.
+                            A requested filter column or output column
+                            does not exist in the selected worksheet.
                         </td>
                     </tr>
 
@@ -2659,6 +2811,34 @@ console.log(data);</code></pre>
     "error": {
         "code": "column_not_found",
         "message": "Column 'Status' was not found in worksheet 'Transactions'."
+    }
+}</code></pre>
+
+            </div>
+
+
+            <div class="code-block">
+
+                <div class="code-header">
+
+                    <span>
+                        Output column not found
+                    </span>
+
+                    <button
+                        class="copy-btn"
+                        onclick="copyCode(this)"
+                    >
+                        Copy
+                    </button>
+
+                </div>
+
+                <pre><code>{
+    "success": false,
+    "error": {
+        "code": "column_not_found",
+        "message": "Output column 'Reference' for filter 'successful' was not found in worksheet 'Transactions'."
     }
 }</code></pre>
 

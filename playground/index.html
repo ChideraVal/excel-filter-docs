@@ -408,11 +408,13 @@
       gap: 10px;
     }
 
-    .filter-values {
+    .filter-values,
+    .filter-columns {
       grid-column: 1 / -1;
     }
 
-    .empty-values {
+    .empty-values,
+    .columns-hint {
       margin-top: 6px;
       font-size: 10px;
       color: var(--muted);
@@ -679,7 +681,8 @@
         grid-template-columns: 1fr;
       }
 
-      .filter-values {
+      .filter-values,
+      .filter-columns {
         grid-column: auto;
       }
 
@@ -992,8 +995,8 @@
       </div>
 
       <div class="limit">
-        <strong>.xlsx</strong>
-        <span>Supported Excel format</span>
+        <strong>100</strong>
+        <span>Maximum spreadsheet columns</span>
       </div>
 
     </div>
@@ -1009,6 +1012,11 @@
      */
 
     const API_URL = "https://filterapi.zendix.app/v1/filter/";
+
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    const MAX_FILTERS = 5;
+    const MAX_VALUES_PER_FILTER = 5;
+    const MAX_COLUMNS_PER_FILTER = 100;
 
 
     /*
@@ -1129,6 +1137,25 @@
 
           </div>
 
+          <div class="field filter-columns">
+
+            <label>
+              Output columns
+            </label>
+
+            <input
+              type="text"
+              class="filter-columns-input"
+              placeholder="e.g. ID, Customer, Amount"
+            />
+
+            <div class="columns-hint">
+              Enter the columns to include in the response, separated by commas.
+              Maximum 100 columns.
+            </div>
+
+          </div>
+
         </div>
       `;
 
@@ -1202,6 +1229,18 @@
 
 
     addFilterButton.addEventListener("click", () => {
+
+      const currentCount =
+        filtersContainer.querySelectorAll(".filter-card").length;
+
+      if (currentCount >= MAX_FILTERS) {
+
+        alert(
+          `A maximum of ${MAX_FILTERS} filters is allowed per request.`
+        );
+
+        return;
+      }
 
       removeEmptyState();
 
@@ -1355,6 +1394,12 @@
             .value
             .trim();
 
+        const columnsText =
+          card
+            .querySelector(".filter-columns-input")
+            .value
+            .trim();
+
 
         let values = [];
 
@@ -1368,10 +1413,23 @@
         }
 
 
+        let columns = [];
+
+        if (columnsText !== "") {
+
+          columns =
+            columnsText
+              .split(",")
+              .map(column => column.trim());
+
+        }
+
+
         filters.push({
           name,
           column,
-          values
+          values,
+          columns
         });
 
       });
@@ -1398,12 +1456,26 @@
       }
 
 
+      if (filters.length > MAX_FILTERS) {
+
+        alert(
+          `A maximum of ${MAX_FILTERS} filters is allowed per request.`
+        );
+
+        return false;
+      }
+
+
       const names = new Set();
 
 
       for (let i = 0; i < filters.length; i++) {
 
         const filter = filters[i];
+
+        /*
+         * Name
+         */
 
         if (!filter.name) {
 
@@ -1415,6 +1487,10 @@
         }
 
 
+        /*
+         * Column
+         */
+
         if (!filter.column) {
 
           alert(
@@ -1424,6 +1500,10 @@
           return false;
         }
 
+
+        /*
+         * Filter name uniqueness
+         */
 
         if (names.has(filter.name)) {
 
@@ -1435,6 +1515,85 @@
         }
 
         names.add(filter.name);
+
+
+        /*
+         * Values limit
+         */
+
+        if (filter.values.length > MAX_VALUES_PER_FILTER) {
+
+          alert(
+            `Filter ${i + 1}: a maximum of ${MAX_VALUES_PER_FILTER} values is allowed.`
+          );
+
+          return false;
+        }
+
+
+        /*
+         * Output columns
+         */
+
+        if (filter.columns.length === 0) {
+
+          alert(
+            `Filter ${i + 1}: at least one output column is required.`
+          );
+
+          return false;
+        }
+
+
+        if (filter.columns.length > MAX_COLUMNS_PER_FILTER) {
+
+          alert(
+            `Filter ${i + 1}: a maximum of ${MAX_COLUMNS_PER_FILTER} output columns is allowed.`
+          );
+
+          return false;
+        }
+
+
+        /*
+         * Check for empty column names.
+         */
+
+        if (
+          filter.columns.some(
+            column => !column
+          )
+        ) {
+
+          alert(
+            `Filter ${i + 1}: output column names cannot be empty.`
+          );
+
+          return false;
+        }
+
+
+        /*
+         * Check for duplicate output columns.
+         */
+
+        const outputColumns =
+          new Set();
+
+        for (const outputColumn of filter.columns) {
+
+          if (outputColumns.has(outputColumn)) {
+
+            alert(
+              `Filter ${i + 1}: duplicate output column "${outputColumn}".`
+            );
+
+            return false;
+          }
+
+          outputColumns.add(outputColumn);
+
+        }
 
       }
 
@@ -1475,7 +1634,7 @@
       }
 
 
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > MAX_FILE_SIZE) {
 
         alert(
           "The Excel file must not exceed 5 MB."
